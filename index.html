@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的私藏拉麵地圖</title>
+    <title>我的私藏拉麵地圖 (雲端版)</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -46,6 +48,7 @@
         .del-btn { background: #e74c3c; }
         .edit-btn { background: #f39c12; }
         .map-btn { background: #3498db; }
+        .loading { text-align: center; color: #8b4513; padding: 20px; }
     </style>
 </head>
 <body>
@@ -58,9 +61,9 @@
         <div id="buttonGroup">
             <div class="backup-buttons">
                 <button class="admin-btn" onclick="exportData()">備份清單 (JSON)</button>
-                <button class="admin-btn" onclick="document.getElementById('fileInput').click()">匯入備份</button>
-                <input type="file" id="fileInput" style="display:none;" accept="application/json" onchange="importData(event)">
+                <button class="admin-btn" onclick="syncLocalToCloud()">將舊資料上傳雲端</button>
             </div>
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">* 雲端版會自動同步，不再需要手動匯入。</p>
         </div>
 
         <input type="text" id="shopName" placeholder="店名">
@@ -70,15 +73,42 @@
         <input type="text" id="commentInput" placeholder="寫下你的短評...">
         <button id="mainBtn" onclick="handleAction()">新增</button>
 
-        <div id="ramenList"></div>
+        <div id="ramenList">
+            <div class="loading">雲端資料載入中...</div>
+        </div>
     </div>
 
     <script>
-        let ramenData = JSON.parse(localStorage.getItem('myRamen') || '[]');
-        let editIndex = -1;
+        // 1. Firebase 初始化
+        const firebaseConfig = {
+            apiKey: "AIzaSyBhVGlm7u1rYcBMo3Fm6bB_qKjjAyMHxe8",
+            authDomain: "my-ramen-map.firebaseapp.com",
+            projectId: "my-ramen-map",
+            storageBucket: "my-ramen-map.firebasestorage.app",
+            messagingSenderId: "664754629990",
+            appId: "1:664754629990:web:97c75efeaf197bc5ed2ca7"
+        };
 
-        // 核心功能：新增或修改
-        function handleAction() {
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const collectionName = "ramens";
+
+        let currentRamenData = []; // 用於存放從雲端抓取的資料
+        let editId = null;
+
+        // 2. 監聽雲端資料庫 (即時更新)
+        db.collection(collectionName).orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+            currentRamenData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            render(currentRamenData);
+        }, (error) => {
+            console.error("監聽失敗:", error);
+            if (error.code === 'permission-denied') {
+                alert("資料庫權限已過期，請去 Firebase 修改 Rules！");
+            }
+        });
+
+        // 3. 新增或修改資料
+        async function handleAction() {
             const name = document.getElementById('shopName').value;
             const flavor = document.getElementById('flavor').value;
             const locationVal = document.getElementById('locationInput').value;
@@ -87,33 +117,37 @@
 
             if (!name) return alert("請輸入店名");
 
-            const newItem = { 
-                name, 
-                flavor, 
-                location: locationVal || '', 
-                star: parseFloat(star) || 0, 
-                comment 
+            const data = {
+                name,
+                flavor,
+                location: locationVal || '',
+                star: parseFloat(star) || 0,
+                comment,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp() // 紀錄新增時間
             };
 
-            if (editIndex === -1) {
-                ramenData.push(newItem);
-            } else {
-                ramenData[editIndex] = newItem;
-                editIndex = -1;
-                document.getElementById('mainBtn').innerText = "新增";
+            try {
+                if (editId === null) {
+                    await db.collection(collectionName).add(data);
+                } else {
+                    await db.collection(collectionName).doc(editId).update(data);
+                    editId = null;
+                    document.getElementById('mainBtn').innerText = "新增";
+                }
+                clearInputs();
+            } catch (e) {
+                alert("儲存失敗: " + e.message);
             }
-
-            saveAndRender();
-            clearInputs();
         }
 
-        // 渲染清單
-        function render() {
+        // 4. 渲染畫面
+        function render(data) {
             const list = document.getElementById('ramenList');
-            const reversedData = [...ramenData].reverse();
-            list.innerHTML = reversedData.map((item, i) => {
-                const realIndex = ramenData.length - 1 - i;
-                return `
+            if (data.length === 0) {
+                list.innerHTML = '<div class="loading">目前雲端沒有資料，快新增第一碗吧！</div>';
+                return;
+            }
+            list.innerHTML = data.map((item) => `
                 <div class="ramen-item">
                     <div class="shop-name">${item.name} (${item.flavor})</div>
                     <div class="location-tag">📍 ${item.location || '未標註地點'}</div>
@@ -121,86 +155,60 @@
                     <div class="comment">${item.comment || '無短評'}</div>
                     <div class="actions">
                         <button class="map-btn" onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${item.name}'))">map</button>
-                        <button class="edit-btn" onclick="startEdit(${realIndex})">edit</button>
-                        <button class="del-btn" onclick="deleteItem(${realIndex})">delete</button>
+                        <button class="edit-btn" onclick="startEdit('${item.id}')">edit</button>
+                        <button class="del-btn" onclick="deleteItem('${item.id}')">delete</button>
                     </div>
                 </div>
-            `}).join('');
+            `).join('');
         }
 
-        // 切換齒輪選單
+        // 5. 輔助功能
         function toggleAdminPanel() {
             const panel = document.getElementById('buttonGroup');
             panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
         }
 
-        // 備份資料
-        function exportData() {
-            if (ramenData.length === 0) return alert("目前沒有資料可以備份喔！");
-            const json = JSON.stringify(ramenData);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'my_ramen_map.json';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        // 匯入資料 (手機優化版)
-        function importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    if (Array.isArray(importedData)) {
-                        // 清理資料格式
-                        const sanitizedData = importedData.map(item => ({
-                            name: item.name || '未命名店舖',
-                            flavor: item.flavor || '',
-                            location: typeof item.location === 'object' ? '' : (item.location || ''),
-                            star: parseFloat(item.star) || 0,
-                            comment: item.comment || ''
-                        }));
-
-                        localStorage.setItem('myRamen', JSON.stringify(sanitizedData));
-                        alert('匯入成功！即將重新載入地圖。');
-                        window.location.reload();
-                    } else {
-                        alert('檔案格式錯誤，請使用正確的備份檔。');
-                    }
-                } catch (err) {
-                    alert('匯入失敗：' + err.message);
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function deleteItem(i) {
-            if(confirm('確定要刪除這碗拉麵紀錄嗎？')) {
-                ramenData.splice(i, 1);
-                saveAndRender();
+        async function deleteItem(id) {
+            if(confirm('確定要從雲端刪除這碗拉麵嗎？')) {
+                await db.collection(collectionName).doc(id).delete();
             }
         }
 
-        function startEdit(i) {
-            const item = ramenData[i];
+        function startEdit(id) {
+            const item = currentRamenData.find(d => d.id === id);
             document.getElementById('shopName').value = item.name;
             document.getElementById('flavor').value = item.flavor;
             document.getElementById('locationInput').value = item.location || '';
             document.getElementById('starInput').value = item.star;
             document.getElementById('commentInput').value = item.comment;
             document.getElementById('mainBtn').innerText = "儲存修改";
-            editIndex = i;
+            editId = id;
             window.scrollTo(0, 0);
         }
 
-        function saveAndRender() {
-            localStorage.setItem('myRamen', JSON.stringify(ramenData));
-            render();
+        // 一鍵搬家：將原本存在手機 localStorage 的資料搬到雲端
+        async function syncLocalToCloud() {
+            const localData = JSON.parse(localStorage.getItem('myRamen') || '[]');
+            if (localData.length === 0) return alert("手機暫存裡沒有舊資料喔！");
+            
+            if (confirm(`發現 ${localData.length} 筆舊資料，要全部搬到雲端嗎？`)) {
+                for (let item of localData) {
+                    await db.collection(collectionName).add({
+                        ...item,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                localStorage.removeItem('myRamen'); // 搬完就清除
+                alert("搬家成功！");
+            }
+        }
+
+        function exportData() {
+            const json = JSON.stringify(currentRamenData);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'my_cloud_ramen_backup.json'; a.click();
         }
 
         function clearInputs() {
@@ -210,9 +218,6 @@
             document.getElementById('starInput').value = '';
             document.getElementById('commentInput').value = '';
         }
-
-        // 初始載入
-        render();
     </script>
 </body>
 </html>
