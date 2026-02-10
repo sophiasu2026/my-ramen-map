@@ -94,7 +94,7 @@
     </div>
 
     <script>
-        // Firebase Config (已帶入你的金鑰)
+        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyBhVGlm7u1rYcBMo3Fm6bB_qKjjAyMHxe8",
             authDomain: "my-ramen-map.firebaseapp.com",
@@ -109,3 +109,139 @@
         const collectionName = "ramens";
 
         let currentRamenData = [];
+        let editId = null;
+
+        // 1. 雲端監聽：確保資料即時顯示
+        db.collection(collectionName).orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+            currentRamenData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            render(currentRamenData);
+        }, (error) => {
+            console.error("雲端連線失敗:", error);
+        });
+
+        // 2. 切換管理選單：齒輪點擊的核心邏輯
+        function toggleAdminPanel() {
+            const panel = document.getElementById('buttonGroup');
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        // 3. 新增與修改功能
+        async function handleAction() {
+            const name = document.getElementById('shopName').value;
+            const flavor = document.getElementById('flavor').value;
+            const locationVal = document.getElementById('locationInput').value;
+            const star = document.getElementById('starInput').value;
+            const comment = document.getElementById('commentInput').value;
+
+            if (!name) return alert("請輸入店名");
+
+            const data = {
+                name,
+                flavor: flavor || '經典',
+                location: locationVal || '',
+                star: parseFloat(star) || 0,
+                comment: comment || '這間拉麵很神，快去吃！',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                if (editId === null) {
+                    await db.collection(collectionName).add(data);
+                } else {
+                    await db.collection(collectionName).doc(editId).update(data);
+                    editId = null;
+                    document.getElementById('mainBtn').innerText = "新增推薦";
+                }
+                clearInputs();
+            } catch (e) { 
+                alert("儲存失敗，請檢查 Firebase 規則是否已開啟！");
+            }
+        }
+
+        // 4. 畫面渲染
+        function render(data) {
+            const list = document.getElementById('ramenList');
+            if (data.length === 0) {
+                list.innerHTML = '<div class="loading">目前還沒有推薦，快去吃拉麵！</div>';
+                return;
+            }
+            list.innerHTML = data.map((item) => `
+                <div class="ramen-item">
+                    <div class="shop-name">
+                        ${item.name}
+                        <span class="flavor-tag">${item.flavor}</span>
+                    </div>
+                    <div class="location-tag">📍 ${item.location || '美食不分地點'}</div>
+                    <div class="stars">${Number(item.star).toFixed(1)} ${'⭐'.repeat(Math.floor(item.star))}</div>
+                    <div class="comment">${item.comment}</div>
+                    <div class="actions">
+                        <button class="map-btn" onclick="window.open('https://www.google.com/maps/search/' + encodeURIComponent('${item.name}'))">🗺️ Map</button>
+                        <button class="edit-btn" onclick="startEdit('${item.id}')">✍️ Edit</button>
+                        <button class="del-btn" onclick="deleteItem('${item.id}')">🗑️ Del</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 5. 刪除與編輯功能
+        async function deleteItem(id) {
+            if(confirm('確定要刪除這碗拉麵嗎？')) {
+                await db.collection(collectionName).doc(id).delete();
+            }
+        }
+
+        function startEdit(id) {
+            const item = currentRamenData.find(d => d.id === id);
+            document.getElementById('shopName').value = item.name;
+            document.getElementById('flavor').value = item.flavor;
+            document.getElementById('locationInput').value = item.location || '';
+            document.getElementById('starInput').value = item.star;
+            document.getElementById('commentInput').value = item.comment;
+            document.getElementById('mainBtn').innerText = "儲存修改";
+            editId = id;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 6. 舊資料搬家功能 (關鍵步驟)
+        async function syncLocalToCloud() {
+            const localData = JSON.parse(localStorage.getItem('myRamen') || '[]');
+            if (localData.length === 0) return alert("手機暫存裡沒發現舊資料。");
+            
+            if (confirm(`發現 ${localData.length} 筆舊資料，要全部搬到雲端同步嗎？`)) {
+                try {
+                    for (let item of localData) {
+                        await db.collection(collectionName).add({ 
+                            ...item, 
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+                        });
+                    }
+                    localStorage.removeItem('myRamen'); // 搬移後清除舊保險箱
+                    alert("同步完成！你的美食清單已飛上雲端。");
+                } catch (e) {
+                    alert("同步失敗，請確認 Firebase 資料庫已啟用。");
+                }
+            }
+        }
+
+        function exportData() {
+            const json = JSON.stringify(currentRamenData);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'ramen_backup.json'; a.click();
+        }
+
+        function clearInputs() {
+            document.getElementById('shopName').value = '';
+            document.getElementById('flavor').value = '';
+            document.getElementById('locationInput').value = '';
+            document.getElementById('starInput').value = '';
+            document.getElementById('commentInput').value = '';
+        }
+    </script>
+</body>
+</html>
