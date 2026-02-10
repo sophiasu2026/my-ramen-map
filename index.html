@@ -145,23 +145,38 @@
         document.getElementById('fileInput').addEventListener('change', importData);
 
         function importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+    const file = event.target.files[0];
+    if (!file) return;
 
-if (location && location.includes('file:///')) {
-   location = ''; // Clear location if it contains file path
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            // 解析 JSON 資料
+            const importedData = JSON.parse(e.target.result);
+            
+            if (Array.isArray(importedData)) {
+                // 資料清理：確保地點(location)欄位是純文字，防止 object object 出現
+                const sanitizedData = importedData.map(item => ({
+                    ...item,
+                    location: typeof item.location === 'object' ? '' : (item.location || '')
+                }));
+
+                // 寫入手機/電腦的保險箱
+                localStorage.setItem('ramenData', JSON.stringify(sanitizedData));
+                
+                // 【核心修復】強制重新整理，讓資料跳出來
+                alert('匯入成功！即將為您重新載入地圖。');
+                window.location.reload(); 
+            } else {
+                alert('檔案格式似乎不太對喔，請確認是備份的 JSON 檔。');
+            }
+        } catch (err) {
+            console.error('匯入出錯:', err);
+            alert('匯入失敗，錯誤原因: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
 }
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    ramenData = JSON.parse(e.target.result);
-                    localStorage.setItem('myRamen', JSON.stringify(ramenData));
-                    render();
-                } catch (error) {
-                    alert('匯入失敗，檔案格式不正確。');
-                }
-            };
-            reader.readAsText(file);
         }
 
         function render() {
