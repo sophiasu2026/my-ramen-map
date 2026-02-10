@@ -25,71 +25,43 @@
             padding: 20px; 
             backdrop-filter: blur(8px);
         }
-        h1 { color: #8b4513; text-align: center; }
+        h1 { color: #8b4513; text-align: center; margin: 0; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        #gearBtn { background: transparent; border: none; font-size: 24px; cursor: pointer; color: #8b4513; }
+        
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button#mainBtn { width: 100%; padding: 15px; background: #ffa500; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
+        
+        #buttonGroup { display: none; margin-bottom: 20px; }
+        .backup-buttons { display: flex; gap: 10px; }
+        .admin-btn { flex: 1; padding: 10px; background: #8b4513; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+
+        .ramen-item { background: white; border: 1px solid #eee; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .shop-name { font-weight: bold; font-size: 18px; color: #333; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; color: #333; background-color: rgba(255, 255, 255, 0.9); }
-        button#mainBtn { width: 100%; padding: 15px; background: #ffa500; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; font-weight: bold; }
-        .ramen-item { background: rgba(255, 255, 255, 0.9); border: 1px solid #eee; padding: 15px; border-radius: 10px; margin-top: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .stars { color: #f1c40f; margin: 5px 0; }
-        .comment { color: #555; font-size: 0.85rem; font-style: italic; margin-top: 5px; }
+        .location-tag { font-size: 0.9rem; color: #666; margin: 5px 0; }
+        .stars { color: #f1c40f; margin: 5px 0; font-weight: bold; }
+        .comment { color: #555; font-size: 0.85rem; font-style: italic; margin-top: 5px; border-left: 3px solid #ffa500; padding-left: 10px; }
         .actions { margin-top: 10px; display: flex; gap: 5px; }
-        .actions button { padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; color: white; }
+        .actions button { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; color: white; font-size: 12px; }
         .del-btn { background: #e74c3c; }
         .edit-btn { background: #f39c12; }
         .map-btn { background: #3498db; }
-        .header-container { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
-        #gearBtn {
-            background: transparent;
-            color: gray;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-        }
-        #buttonGroup { display: none; }
-        .backup-buttons { display: flex; justify-content: space-between; margin-top: 10px; }
-        button#exportBtn, button#importBtn {
-            background: rgba(139, 69, 19, 0.8);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 5px;
-            flex: 1;
-        }
     </style>
 </head>
 <body>
     <div class="app-card">
         <div class="header-container">
             <h1>我的私藏拉麵地圖</h1>
-            <button id="gearBtn" onclick="toggleButtonGroup()" style="font-size: 24px; color: #8b4513; cursor: pointer;">⚙️</button>
+            <button id="gearBtn" onclick="toggleAdminPanel()">⚙️</button>
         </div>
 
         <div id="buttonGroup">
             <div class="backup-buttons">
-                <button id="exportBtn" onclick="exportData()">備份清單 (JSON)</button>
-                <button id="importBtn" onclick="document.getElementById('fileInput').click();">匯入備份</button>
-                <input type="file" id="fileInput" style="display:none;" accept="application/json" />
+                <button class="admin-btn" onclick="exportData()">備份清單 (JSON)</button>
+                <button class="admin-btn" onclick="document.getElementById('fileInput').click()">匯入備份</button>
+                <input type="file" id="fileInput" style="display:none;" accept="application/json" onchange="importData(event)">
             </div>
         </div>
-
-        <div id="ramenList"></div>
-         
-        <script>
-        function render() {
-            const list = document.getElementById('ramenList');
-            list.innerHTML = ramenData.map(item => `
-                <div class="ramen-item">
-                    <h3>${item.name} (${item.flavor})</h3>
-                    <div>📍 ${item.location}</div>
-                    <div>📍 ${item.location}</div><div>📍 ${item.location || ''}</div><div class="stars">${Number(item.star).toFixed(1)} ⭐</div>
-                    <p>${item.comment}</p>
-                </div>
-            `).join('');
-        }
-        </script>
 
         <input type="text" id="shopName" placeholder="店名">
         <input type="text" id="flavor" placeholder="口味推薦">
@@ -97,21 +69,31 @@
         <input type="number" id="starInput" placeholder="星等 (0-5)" step="0.1" min="0" max="5">
         <input type="text" id="commentInput" placeholder="寫下你的短評...">
         <button id="mainBtn" onclick="handleAction()">新增</button>
+
+        <div id="ramenList"></div>
     </div>
 
     <script>
         let ramenData = JSON.parse(localStorage.getItem('myRamen') || '[]');
         let editIndex = -1;
 
+        // 核心功能：新增或修改
         function handleAction() {
             const name = document.getElementById('shopName').value;
             const flavor = document.getElementById('flavor').value;
+            const locationVal = document.getElementById('locationInput').value;
             const star = document.getElementById('starInput').value;
             const comment = document.getElementById('commentInput').value;
 
             if (!name) return alert("請輸入店名");
 
-            const newItem = { name, flavor, location: document.getElementById('locationInput').value, star: parseFloat(star) || 0, comment };
+            const newItem = { 
+                name, 
+                flavor, 
+                location: locationVal || '', 
+                star: parseFloat(star) || 0, 
+                comment 
+            };
 
             if (editIndex === -1) {
                 ramenData.push(newItem);
@@ -121,17 +103,40 @@
                 document.getElementById('mainBtn').innerText = "新增";
             }
 
-            localStorage.setItem('myRamen', JSON.stringify(ramenData));
+            saveAndRender();
             clearInputs();
-            render();
         }
 
-        function toggleButtonGroup() {
-            const buttonGroup = document.getElementById('buttonGroup');
-            buttonGroup.style.display = buttonGroup.style.display === 'none' ? 'block' : 'none';
+        // 渲染清單
+        function render() {
+            const list = document.getElementById('ramenList');
+            const reversedData = [...ramenData].reverse();
+            list.innerHTML = reversedData.map((item, i) => {
+                const realIndex = ramenData.length - 1 - i;
+                return `
+                <div class="ramen-item">
+                    <div class="shop-name">${item.name} (${item.flavor})</div>
+                    <div class="location-tag">📍 ${item.location || '未標註地點'}</div>
+                    <div class="stars">${Number(item.star).toFixed(1)} ${'⭐'.repeat(Math.floor(item.star))}</div>
+                    <div class="comment">${item.comment || '無短評'}</div>
+                    <div class="actions">
+                        <button class="map-btn" onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${item.name}'))">map</button>
+                        <button class="edit-btn" onclick="startEdit(${realIndex})">edit</button>
+                        <button class="del-btn" onclick="deleteItem(${realIndex})">delete</button>
+                    </div>
+                </div>
+            `}).join('');
         }
 
+        // 切換齒輪選單
+        function toggleAdminPanel() {
+            const panel = document.getElementById('buttonGroup');
+            panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
+        }
+
+        // 備份資料
         function exportData() {
+            if (ramenData.length === 0) return alert("目前沒有資料可以備份喔！");
             const json = JSON.stringify(ramenData);
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -142,85 +147,71 @@
             URL.revokeObjectURL(url);
         }
 
-        document.getElementById('fileInput').addEventListener('change', importData);
-
+        // 匯入資料 (手機優化版)
         function importData(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+            const file = event.target.files[0];
+            if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            // 解析 JSON 資料
-            const importedData = JSON.parse(e.target.result);
-            
-            if (Array.isArray(importedData)) {
-                // 資料清理：確保地點(location)欄位是純文字，防止 object object 出現
-                const sanitizedData = importedData.map(item => ({
-                    ...item,
-                    location: typeof item.location === 'object' ? '' : (item.location || '')
-                }));
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (Array.isArray(importedData)) {
+                        // 清理資料格式
+                        const sanitizedData = importedData.map(item => ({
+                            name: item.name || '未命名店舖',
+                            flavor: item.flavor || '',
+                            location: typeof item.location === 'object' ? '' : (item.location || ''),
+                            star: parseFloat(item.star) || 0,
+                            comment: item.comment || ''
+                        }));
 
-                // 寫入手機/電腦的保險箱
-                localStorage.setItem('ramenData', JSON.stringify(sanitizedData));
-                
-                // 【核心修復】強制重新整理，讓資料跳出來
-                alert('匯入成功！即將為您重新載入地圖。');
-                window.location.reload(); 
-            } else {
-                alert('檔案格式似乎不太對喔，請確認是備份的 JSON 檔。');
-            }
-        } catch (err) {
-            console.error('匯入出錯:', err);
-            alert('匯入失敗，錯誤原因: ' + err.message);
-        }
-    };
-    reader.readAsText(file);
-}
-        }
-
-        function render() {
-            const list = document.getElementById('ramenList');
-            const reversedData = [...ramenData].reverse();
-            list.innerHTML = reversedData.map((item, i) => `
-                <div class="ramen-item">
-                    <div class="shop-name">${item.name} (${item.flavor})</div>
-                    <div class="stars">${Number(item.star).toFixed(1)} ${'⭐'.repeat(Math.floor(item.star))}</div>
-                    <div class="comment">${item.comment}</div>
-                    <div class="actions">
-                        <button class="map-btn" onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${item.name}'))">map</button>
-                        <button class="edit-btn" onclick="startEdit(${ramenData.length - 1 - i})">edit</button>
-                        <button class="del-btn" onclick="deleteItem(${ramenData.length - 1 - i})">delete</button>
-                    </div>
-                </div>
-            `).join('');
+                        localStorage.setItem('myRamen', JSON.stringify(sanitizedData));
+                        alert('匯入成功！即將重新載入地圖。');
+                        window.location.reload();
+                    } else {
+                        alert('檔案格式錯誤，請使用正確的備份檔。');
+                    }
+                } catch (err) {
+                    alert('匯入失敗：' + err.message);
+                }
+            };
+            reader.readAsText(file);
         }
 
         function deleteItem(i) {
-            ramenData.splice(i, 1);
-            localStorage.setItem('myRamen', JSON.stringify(ramenData));
-            render();
+            if(confirm('確定要刪除這碗拉麵紀錄嗎？')) {
+                ramenData.splice(i, 1);
+                saveAndRender();
+            }
         }
 
         function startEdit(i) {
             const item = ramenData[i];
             document.getElementById('shopName').value = item.name;
             document.getElementById('flavor').value = item.flavor;
-document.getElementById('locationInput').value = item.location;
-            document.getElementById('locationInput').value = item.location; // Fill location
+            document.getElementById('locationInput').value = item.location || '';
             document.getElementById('starInput').value = item.star;
             document.getElementById('commentInput').value = item.comment;
             document.getElementById('mainBtn').innerText = "儲存修改";
             editIndex = i;
+            window.scrollTo(0, 0);
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('myRamen', JSON.stringify(ramenData));
+            render();
         }
 
         function clearInputs() {
             document.getElementById('shopName').value = '';
             document.getElementById('flavor').value = '';
+            document.getElementById('locationInput').value = '';
             document.getElementById('starInput').value = '';
             document.getElementById('commentInput').value = '';
         }
 
+        // 初始載入
         render();
     </script>
 </body>
