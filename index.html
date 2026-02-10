@@ -3,52 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <title>我的私藏拉麵地圖 (雲端版)</title>
+    <meta name="description" content="跟著我一起吃遍最好吃的職人拉麵！這是我的私藏推薦清單。">
+    <meta property="og:title" content="我的私藏拉麵地圖">
+    <meta property="og:description" content="職人級拉麵私心推薦，包含口味、評分與即時地圖。">
+    <meta property="og:image" content="https://cdn-icons-png.flaticon.com/512/1046/1046751.png">
+    <meta property="og:type" content="website">
+
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
     <style>
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', 'Arial', sans-serif;
             background-image: url('https://media.istockphoto.com/id/1453893215/vector/ramen-japanese-food-vector-illustration.jpg?s=1024x1024&w=is&k=20&c=o2k8_SF4Sl0KNxxF-VPxXmi57893PqpTMmEpFJXEXts');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
             margin: 0;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             justify-content: center;
         }
         .app-card { 
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             width: 100%; 
-            max-width: 400px; 
-            border-radius: 15px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
-            padding: 20px; 
-            backdrop-filter: blur(8px);
+            max-width: 420px; 
+            border-radius: 20px; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15); 
+            padding: 25px; 
+            backdrop-filter: blur(10px);
+            margin-bottom: 50px;
         }
-        h1 { color: #8b4513; text-align: center; margin: 0; }
-        .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        #gearBtn { background: transparent; border: none; font-size: 24px; cursor: pointer; color: #8b4513; }
+        h1 { color: #8b4513; text-align: center; margin: 0; font-size: 1.6rem; letter-spacing: 1px; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        button#mainBtn { width: 100%; padding: 15px; background: #ffa500; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
+        #gearBtn { background: transparent; border: none; font-size: 26px; cursor: pointer; color: #8b4513; opacity: 0.7; transition: 0.3s; }
+        #gearBtn:hover { opacity: 1; transform: rotate(45deg); }
         
-        #buttonGroup { display: none; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px 15px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; transition: 0.3s; }
+        input:focus { border-color: #ffa500; outline: none; box-shadow: 0 0 5px rgba(255,165,0,0.3); }
+        
+        button#mainBtn { width: 100%; padding: 15px; background: linear-gradient(135deg, #ffa500, #ff8c00); color: white; border: none; border-radius: 10px; font-size: 18px; cursor: pointer; font-weight: bold; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(255,140,0,0.3); }
+        
+        #buttonGroup { display: none; background: #fdf5e6; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
         .backup-buttons { display: flex; gap: 10px; }
-        .admin-btn { flex: 1; padding: 10px; background: #8b4513; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .admin-btn { flex: 1; padding: 10px; background: #8b4513; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; }
 
-        .ramen-item { background: white; border: 1px solid #eee; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .shop-name { font-weight: bold; font-size: 18px; color: #333; }
-        .location-tag { font-size: 0.9rem; color: #666; margin: 5px 0; }
-        .stars { color: #f1c40f; margin: 5px 0; font-weight: bold; }
-        .comment { color: #555; font-size: 0.85rem; font-style: italic; margin-top: 5px; border-left: 3px solid #ffa500; padding-left: 10px; }
-        .actions { margin-top: 10px; display: flex; gap: 5px; }
-        .actions button { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; color: white; font-size: 12px; }
-        .del-btn { background: #e74c3c; }
-        .edit-btn { background: #f39c12; }
-        .map-btn { background: #3498db; }
-        .loading { text-align: center; color: #8b4513; padding: 20px; }
+        .ramen-item { background: white; border: 1px solid #eee; padding: 20px; border-radius: 15px; margin-bottom: 18px; box-shadow: 0 3px 10px rgba(0,0,0,0.03); position: relative; }
+        .shop-name { font-weight: 800; font-size: 19px; color: #2c3e50; line-height: 1.4; }
+        .flavor-tag { display: inline-block; background: #fff3e0; color: #e67e22; padding: 2px 8px; border-radius: 5px; font-size: 0.8rem; margin-left: 5px; vertical-align: middle; }
+        .location-tag { font-size: 0.9rem; color: #7f8c8d; margin: 8px 0; display: flex; align-items: center; gap: 5px; }
+        .stars { color: #f1c40f; margin: 8px 0; font-size: 1.1rem; }
+        .comment { color: #5d6d7e; font-size: 0.9rem; font-style: italic; margin-top: 10px; border-left: 4px solid #ffa500; padding-left: 12px; line-height: 1.5; }
+        
+        .actions { margin-top: 15px; display: flex; gap: 8px; border-top: 1px solid #f1f1f1; padding-top: 12px; }
+        .actions button { flex: 1; padding: 8px; border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 12px; font-weight: bold; transition: 0.2s; }
+        .del-btn { background: #ff7675; }
+        .edit-btn { background: #fab1a0; color: #8b4513 !important; }
+        .map-btn { background: #74b9ff; }
+        .loading { text-align: center; color: #8b4513; padding: 40px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -60,26 +75,26 @@
 
         <div id="buttonGroup">
             <div class="backup-buttons">
-                <button class="admin-btn" onclick="exportData()">備份清單 (JSON)</button>
-                <button class="admin-btn" onclick="syncLocalToCloud()">將舊資料上傳雲端</button>
+                <button class="admin-btn" onclick="exportData()">備份清單</button>
+                <button class="admin-btn" onclick="syncLocalToCloud()">舊資料上傳雲端</button>
             </div>
-            <p style="font-size: 12px; color: #666; margin-top: 5px;">* 雲端版會自動同步，不再需要手動匯入。</p>
+            <p style="font-size: 11px; color: #95a5a6; margin-top: 8px; text-align: center;">雲端同步啟動中，資料即時更新</p>
         </div>
 
         <input type="text" id="shopName" placeholder="店名">
-        <input type="text" id="flavor" placeholder="口味推薦">
-        <input type="text" id="locationInput" placeholder="地區（如：中山區、台中）">
-        <input type="number" id="starInput" placeholder="星等 (0-5)" step="0.1" min="0" max="5">
-        <input type="text" id="commentInput" placeholder="寫下你的短評...">
-        <button id="mainBtn" onclick="handleAction()">新增</button>
+        <input type="text" id="flavor" placeholder="口味推薦 (如: 雞白湯)">
+        <input type="text" id="locationInput" placeholder="地區 (如: 中山區)">
+        <input type="number" id="starInput" placeholder="星等 (0-5)" step="0.1">
+        <input type="text" id="commentInput" placeholder="寫下你的職人短評...">
+        <button id="mainBtn" onclick="handleAction()">新增推薦</button>
 
         <div id="ramenList">
-            <div class="loading">雲端資料載入中...</div>
+            <div class="loading">🍜 正在準備美味資料...</div>
         </div>
     </div>
 
     <script>
-        // 1. Firebase 初始化
+        // Firebase Config (已帶入你的金鑰)
         const firebaseConfig = {
             apiKey: "AIzaSyBhVGlm7u1rYcBMo3Fm6bB_qKjjAyMHxe8",
             authDomain: "my-ramen-map.firebaseapp.com",
@@ -93,131 +108,4 @@
         const db = firebase.firestore();
         const collectionName = "ramens";
 
-        let currentRamenData = []; // 用於存放從雲端抓取的資料
-        let editId = null;
-
-        // 2. 監聽雲端資料庫 (即時更新)
-        db.collection(collectionName).orderBy("createdAt", "desc").onSnapshot((snapshot) => {
-            currentRamenData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            render(currentRamenData);
-        }, (error) => {
-            console.error("監聽失敗:", error);
-            if (error.code === 'permission-denied') {
-                alert("資料庫權限已過期，請去 Firebase 修改 Rules！");
-            }
-        });
-
-        // 3. 新增或修改資料
-        async function handleAction() {
-            const name = document.getElementById('shopName').value;
-            const flavor = document.getElementById('flavor').value;
-            const locationVal = document.getElementById('locationInput').value;
-            const star = document.getElementById('starInput').value;
-            const comment = document.getElementById('commentInput').value;
-
-            if (!name) return alert("請輸入店名");
-
-            const data = {
-                name,
-                flavor,
-                location: locationVal || '',
-                star: parseFloat(star) || 0,
-                comment,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp() // 紀錄新增時間
-            };
-
-            try {
-                if (editId === null) {
-                    await db.collection(collectionName).add(data);
-                } else {
-                    await db.collection(collectionName).doc(editId).update(data);
-                    editId = null;
-                    document.getElementById('mainBtn').innerText = "新增";
-                }
-                clearInputs();
-            } catch (e) {
-                alert("儲存失敗: " + e.message);
-            }
-        }
-
-        // 4. 渲染畫面
-        function render(data) {
-            const list = document.getElementById('ramenList');
-            if (data.length === 0) {
-                list.innerHTML = '<div class="loading">目前雲端沒有資料，快新增第一碗吧！</div>';
-                return;
-            }
-            list.innerHTML = data.map((item) => `
-                <div class="ramen-item">
-                    <div class="shop-name">${item.name} (${item.flavor})</div>
-                    <div class="location-tag">📍 ${item.location || '未標註地點'}</div>
-                    <div class="stars">${Number(item.star).toFixed(1)} ${'⭐'.repeat(Math.floor(item.star))}</div>
-                    <div class="comment">${item.comment || '無短評'}</div>
-                    <div class="actions">
-                        <button class="map-btn" onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${item.name}'))">map</button>
-                        <button class="edit-btn" onclick="startEdit('${item.id}')">edit</button>
-                        <button class="del-btn" onclick="deleteItem('${item.id}')">delete</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // 5. 輔助功能
-        function toggleAdminPanel() {
-            const panel = document.getElementById('buttonGroup');
-            panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
-        }
-
-        async function deleteItem(id) {
-            if(confirm('確定要從雲端刪除這碗拉麵嗎？')) {
-                await db.collection(collectionName).doc(id).delete();
-            }
-        }
-
-        function startEdit(id) {
-            const item = currentRamenData.find(d => d.id === id);
-            document.getElementById('shopName').value = item.name;
-            document.getElementById('flavor').value = item.flavor;
-            document.getElementById('locationInput').value = item.location || '';
-            document.getElementById('starInput').value = item.star;
-            document.getElementById('commentInput').value = item.comment;
-            document.getElementById('mainBtn').innerText = "儲存修改";
-            editId = id;
-            window.scrollTo(0, 0);
-        }
-
-        // 一鍵搬家：將原本存在手機 localStorage 的資料搬到雲端
-        async function syncLocalToCloud() {
-            const localData = JSON.parse(localStorage.getItem('myRamen') || '[]');
-            if (localData.length === 0) return alert("手機暫存裡沒有舊資料喔！");
-            
-            if (confirm(`發現 ${localData.length} 筆舊資料，要全部搬到雲端嗎？`)) {
-                for (let item of localData) {
-                    await db.collection(collectionName).add({
-                        ...item,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-                localStorage.removeItem('myRamen'); // 搬完就清除
-                alert("搬家成功！");
-            }
-        }
-
-        function exportData() {
-            const json = JSON.stringify(currentRamenData);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'my_cloud_ramen_backup.json'; a.click();
-        }
-
-        function clearInputs() {
-            document.getElementById('shopName').value = '';
-            document.getElementById('flavor').value = '';
-            document.getElementById('locationInput').value = '';
-            document.getElementById('starInput').value = '';
-            document.getElementById('commentInput').value = '';
-        }
-    </script>
-</body>
-</html>
+        let currentRamenData = [];
