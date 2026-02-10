@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的私藏拉麵地圖</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-image: url('https://media.istockphoto.com/id/1453893215/vector/ramen-japanese-food-vector-illustration.jpg?s=1024x1024&w=is&k=20&c=o2k8_SF4Sl0KNxxF-VPxXmi57893PqpTMmEpFJXEXts');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .app-card { 
+            background: rgba(255, 255, 255, 0.9);
+            width: 100%; 
+            max-width: 400px; 
+            border-radius: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            padding: 20px; 
+            backdrop-filter: blur(8px);
+        }
+        h1 { color: #8b4513; text-align: center; }
+        .shop-name { font-weight: bold; font-size: 18px; color: #333; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; color: #333; background-color: rgba(255, 255, 255, 0.9); }
+        button#mainBtn { width: 100%; padding: 15px; background: #ffa500; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; font-weight: bold; }
+        .ramen-item { background: rgba(255, 255, 255, 0.9); border: 1px solid #eee; padding: 15px; border-radius: 10px; margin-top: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .stars { color: #f1c40f; margin: 5px 0; }
+        .comment { color: #555; font-size: 0.85rem; font-style: italic; margin-top: 5px; }
+        .actions { margin-top: 10px; display: flex; gap: 5px; }
+        .actions button { padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; color: white; }
+        .del-btn { background: #e74c3c; }
+        .edit-btn { background: #f39c12; }
+        .map-btn { background: #3498db; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
+        #gearBtn {
+            background: transparent;
+            color: gray;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        #buttonGroup { display: none; }
+        .backup-buttons { display: flex; justify-content: space-between; margin-top: 10px; }
+        button#exportBtn, button#importBtn {
+            background: rgba(139, 69, 19, 0.8);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-card">
+        <div class="header-container">
+            <h1>我的私藏拉麵地圖</h1>
+            <button id="gearBtn" onclick="toggleButtonGroup()" style="font-size: 24px; color: #8b4513; cursor: pointer;">⚙️</button>
+        </div>
+
+        <div id="buttonGroup">
+            <div class="backup-buttons">
+                <button id="exportBtn" onclick="exportData()">備份清單 (JSON)</button>
+                <button id="importBtn" onclick="document.getElementById('fileInput').click();">匯入備份</button>
+                <input type="file" id="fileInput" style="display:none;" accept="application/json" />
+            </div>
+        </div>
+
+        <div id="ramenList"></div>
+         
+        <script>
+        function render() {
+            const list = document.getElementById('ramenList');
+            list.innerHTML = ramenData.map(item => `
+                <div class="ramen-item">
+                    <h3>${item.name} (${item.flavor})</h3>
+                    <div>📍 ${item.location}</div>
+                    <div>📍 ${item.location}</div><div>📍 ${item.location || ''}</div><div class="stars">${Number(item.star).toFixed(1)} ⭐</div>
+                    <p>${item.comment}</p>
+                </div>
+            `).join('');
+        }
+        </script>
+
+        <input type="text" id="shopName" placeholder="店名">
+        <input type="text" id="flavor" placeholder="口味推薦">
+        <input type="text" id="locationInput" placeholder="地區（如：中山區、台中）">
+        <input type="number" id="starInput" placeholder="星等 (0-5)" step="0.1" min="0" max="5">
+        <input type="text" id="commentInput" placeholder="寫下你的短評...">
+        <button id="mainBtn" onclick="handleAction()">新增</button>
+    </div>
+
+    <script>
+        let ramenData = JSON.parse(localStorage.getItem('myRamen') || '[]');
+        let editIndex = -1;
+
+        function handleAction() {
+            const name = document.getElementById('shopName').value;
+            const flavor = document.getElementById('flavor').value;
+            const star = document.getElementById('starInput').value;
+            const comment = document.getElementById('commentInput').value;
+
+            if (!name) return alert("請輸入店名");
+
+            const newItem = { name, flavor, location: document.getElementById('locationInput').value, star: parseFloat(star) || 0, comment };
+
+            if (editIndex === -1) {
+                ramenData.push(newItem);
+            } else {
+                ramenData[editIndex] = newItem;
+                editIndex = -1;
+                document.getElementById('mainBtn').innerText = "新增";
+            }
+
+            localStorage.setItem('myRamen', JSON.stringify(ramenData));
+            clearInputs();
+            render();
+        }
+
+        function toggleButtonGroup() {
+            const buttonGroup = document.getElementById('buttonGroup');
+            buttonGroup.style.display = buttonGroup.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function exportData() {
+            const json = JSON.stringify(ramenData);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'my_ramen_map.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        document.getElementById('fileInput').addEventListener('change', importData);
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+if (location && location.includes('file:///')) {
+   location = ''; // Clear location if it contains file path
+}
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    ramenData = JSON.parse(e.target.result);
+                    localStorage.setItem('myRamen', JSON.stringify(ramenData));
+                    render();
+                } catch (error) {
+                    alert('匯入失敗，檔案格式不正確。');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function render() {
+            const list = document.getElementById('ramenList');
+            const reversedData = [...ramenData].reverse();
+            list.innerHTML = reversedData.map((item, i) => `
+                <div class="ramen-item">
+                    <div class="shop-name">${item.name} (${item.flavor})</div>
+                    <div class="stars">${Number(item.star).toFixed(1)} ${'⭐'.repeat(Math.floor(item.star))}</div>
+                    <div class="comment">${item.comment}</div>
+                    <div class="actions">
+                        <button class="map-btn" onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${item.name}'))">map</button>
+                        <button class="edit-btn" onclick="startEdit(${ramenData.length - 1 - i})">edit</button>
+                        <button class="del-btn" onclick="deleteItem(${ramenData.length - 1 - i})">delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteItem(i) {
+            ramenData.splice(i, 1);
+            localStorage.setItem('myRamen', JSON.stringify(ramenData));
+            render();
+        }
+
+        function startEdit(i) {
+            const item = ramenData[i];
+            document.getElementById('shopName').value = item.name;
+            document.getElementById('flavor').value = item.flavor;
+document.getElementById('locationInput').value = item.location;
+            document.getElementById('locationInput').value = item.location; // Fill location
+            document.getElementById('starInput').value = item.star;
+            document.getElementById('commentInput').value = item.comment;
+            document.getElementById('mainBtn').innerText = "儲存修改";
+            editIndex = i;
+        }
+
+        function clearInputs() {
+            document.getElementById('shopName').value = '';
+            document.getElementById('flavor').value = '';
+            document.getElementById('starInput').value = '';
+            document.getElementById('commentInput').value = '';
+        }
+
+        render();
+    </script>
+</body>
+</html>
